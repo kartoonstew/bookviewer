@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Cover 3D Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --text-dim: #888;
+    --text-muted: #555;
+    --accent: #c9a55a;
+    --accent-dim: rgba(201, 165, 90, 0.15);
+    --accent-glow: rgba(201, 165, 90, 0.3);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #canvas-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  canvas { display: block; }
+
+  /* Top bar */
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 52px;
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+  }
+
+  .top-bar .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .top-bar .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--bg);
+  }
+
+  .top-bar .logo-text {
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  .top-bar .logo-text span {
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  .top-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+    background: var(--surface2);
+  }
+
+  .btn-accent {
+    background: var(--accent-dim);
+    border-color: rgba(201, 165, 90, 0.3);
+    color: var(--accent);
+  }
+
+  .btn-accent:hover {
+    background: rgba(201, 165, 90, 0.25);
+    border-color: var(--accent);
+  }
+
+  /* Side panel */
+  .side-panel {
+    position: fixed;
+    top: 52px;
+    right: 0;
+    bottom: 0;
+    width: 280px;
+    background: rgba(14, 14, 14, 0.9);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border);
+    z-index: 90;
+    overflow-y: auto;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .side-panel.collapsed {
+    transform: translateX(100%);
+  }
+
+  .panel-section {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .slider-group {
+    margin-bottom: 14px;
+  }
+
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .slider-label span {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .slider-label .slider-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+
+  .toggle-row span {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle.active {
+    background: var(--accent);
+  }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--text);
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .toggle.active::after {
+    transform: translateX(16px);
+  }
+
+  /* Environment presets */
+  .env-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .env-btn {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .env-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text);
+  }
+
+  .env-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* Drop zone */
+  .drop-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 10, 0.92);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .drop-overlay.active {
+    display: flex;
+  }
+
+  .drop-box {
+    border: 2px dashed var(--accent);
+    border-radius: 16px;
+    padding: 60px 80px;
+    text-align: center;
+    background: var(--accent-dim);
+  }
+
+  .drop-box h2 {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .drop-box p {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* Info bar */
+  .info-bar {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(50%);
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    z-index: 80;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .info-bar .separator {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+  }
+
+  .info-bar kbd {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    transition: opacity 0.6s;
+  }
+
+  .loading-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-top: 2px solid var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .loading-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Demo badge */
+  .demo-badge {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(20, 20, 20, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    z-index: 80;
+    max-width: 220px;
+  }
+
+  .demo-badge .badge-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .demo-badge .badge-text {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  .side-panel::-webkit-scrollbar { width: 4px; }
+  .side-panel::-webkit-scrollbar-track { background: transparent; }
+  .side-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Diagnostics overlay */
+  .diag-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 500;
+    overflow-y: auto;
+    padding: 60px 20px 20px;
+  }
+
+  .diag-panel {
+    max-width: 800px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .diag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .diag-content {
+    padding: 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .diag-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .diag-section:last-child { border-bottom: none; }
+
+  .diag-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .diag-ok { color: #5cb85c; }
+  .diag-warn { color: #f0ad4e; }
+  .diag-bad { color: #d9534f; }
+  .diag-label { color: var(--text-muted); }
+  .diag-val { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Initializing viewer</div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay">
+  <div class="drop-box">
+    <h2>Drop GLB File</h2>
+    <p>Load your Blender export to preview</p>
+  </div>
+</div>
+
+<div class="top-bar">
+  <div class="logo">
+    <div class="logo-icon">B</div>
+    <div class="logo-text">BookRender <span>Viewer</span></div>
+  </div>
+  <div class="top-bar-actions">
+    <button class="btn" id="btnLoadGLB" onclick="document.getElementById('fileInput').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      Load GLB
+    </button>
+    <button class="btn" id="btnResetCamera" onclick="resetCamera()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+      Reset
+    </button>
+    <button class="btn btn-accent" id="btnTogglePanel" onclick="togglePanel()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Materials
+    </button>
+    <button class="btn" id="btnDiagnose" onclick="runDiagnostics()" style="border-color: #c9553a; color: #c9553a;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Diagnose
+    </button>
+    <input type="file" id="fileInput" accept=".glb,.gltf" style="display:none" onchange="loadFile(event)">
+  </div>
+</div>
+
+<div class="side-panel" id="sidePanel">
+  <div class="panel-section">
+    <div class="panel-section-title">Environment</div>
+    <div class="env-grid">
+      <button class="env-btn active" data-env="studio" onclick="setEnvironment('studio')">Studio</button>
+      <button class="env-btn" data-env="sunset" onclick="setEnvironment('sunset')">Sunset</button>
+      <button class="env-btn" data-env="warehouse" onclick="setEnvironment('warehouse')">Warehouse</button>
+      <button class="env-btn" data-env="outdoor" onclick="setEnvironment('outdoor')">Outdoor</button>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Exposure</div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Exposure</span>
+        <span class="slider-value" id="lightIntensityVal">0.3</span>
+      </div>
+      <input type="range" min="0.1" max="4" step="0.1" value="0.3" id="lightIntensity" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Env Intensity</span>
+        <span class="slider-value" id="envIntensityVal">1.2</span>
+      </div>
+      <input type="range" min="0" max="4" step="0.1" value="1.2" id="envIntensity" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Env Rotation</span>
+        <span class="slider-value" id="envRotationVal">57°</span>
+      </div>
+      <input type="range" min="0" max="360" step="1" value="57" id="envRotation" oninput="updateLighting()">
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Key Light (Spot)</div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Power</span>
+        <span class="slider-value" id="keyPowerVal">15.5</span>
+      </div>
+      <input type="range" min="0" max="20" step="0.5" value="15.5" id="keyPower" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Orbit Angle</span>
+        <span class="slider-value" id="keyAngleVal">25°</span>
+      </div>
+      <input type="range" min="0" max="360" step="1" value="25" id="keyAngle" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Height</span>
+        <span class="slider-value" id="keyHeightVal">1.20</span>
+      </div>
+      <input type="range" min="0.1" max="3" step="0.05" value="1.2" id="keyHeight" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Distance</span>
+        <span class="slider-value" id="keyDistanceVal">2.10</span>
+      </div>
+      <input type="range" min="0.3" max="3" step="0.05" value="2.1" id="keyDistance" oninput="updateLighting()">
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Fill & Rim Lights</div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Fill Power</span>
+        <span class="slider-value" id="fillPowerVal">3.0</span>
+      </div>
+      <input type="range" min="0" max="10" step="0.5" value="3" id="fillPower" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Rim Power</span>
+        <span class="slider-value" id="rimPowerVal">4.0</span>
+      </div>
+      <input type="range" min="0" max="10" step="0.5" value="4" id="rimPower" oninput="updateLighting()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Accent Power</span>
+        <span class="slider-value" id="accentPowerVal">2.5</span>
+      </div>
+      <input type="range" min="0" max="10" step="0.5" value="2.5" id="accentPower" oninput="updateLighting()">
+    </div>
+    <div class="toggle-row">
+      <span>Show Light Positions</span>
+      <div class="toggle active" id="toggleHelpers" onclick="toggleLightHelpers(this)"></div>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Background</div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Brightness</span>
+        <span class="slider-value" id="bgBrightnessVal">0.16</span>
+      </div>
+      <input type="range" min="0" max="0.3" step="0.01" value="0.16" id="bgBrightness" oninput="updateBackground()">
+    </div>
+    <div class="toggle-row">
+      <span>Show Env Background</span>
+      <div class="toggle" id="showEnvBg" onclick="toggleEnvBg(this)"></div>
+    </div>
+  </div>
+</div>
+
+<div class="demo-badge" id="demoBadge">
+  <div class="badge-title">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+    Demo Book
+  </div>
+  <div class="badge-text">Procedural PBR demo with foil, emboss, and spot UV. Drag a .glb file to load your own model.</div>
+</div>
+
+<div class="info-bar" id="infoBar">
+  <span><kbd>LMB</kbd> Rotate object</span>
+  <div class="separator"></div>
+  <span><kbd>RMB</kbd> Pan</span>
+  <div class="separator"></div>
+  <span><kbd>Scroll</kbd> Zoom</span>
+  <div class="separator"></div>
+  <span>Drag <kbd>.glb</kbd> to load</span>
+</div>
+
+<div class="diag-overlay" id="diagOverlay">
+  <div class="diag-panel">
+    <div class="diag-header">
+      <span>Material Diagnostics</span>
+      <button class="btn" onclick="document.getElementById('diagOverlay').style.display='none'" style="padding: 4px 10px;">Close</button>
+    </div>
+    <div class="diag-content" id="diagContent"></div>
+  </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+// ============================================================
+// GLOBALS
+// ============================================================
+let scene, camera, renderer, controls;
+let bookGroup, demoBook;
+let turntable; // Parent group — this is what rotates when you drag
+let keyLight, fillLight, rimLight, accentLight;
+let keyHelper, fillHelper, accentHelper;
+let envMap = null;
+let currentModel = null;
+let pmremGenerator;
+let showLightHelpers = true;
+
+// Mouse rotation state
+let isDragging = false;
+let previousMouse = { x: 0, y: 0 };
+let rotationVelocity = { x: 0, y: 0 };
+const DRAG_SPEED = 0.006;
+const DAMPING = 0.92;
+
+// Texture canvases for demo
+let baseColorTex, metallicTex, roughnessTex, normalTex;
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  const container = document.getElementById('canvas-container');
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0.16, 0.16, 0.16);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0.6, 0.4, 0.8);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.3;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.physicallyCorrectLights = true;
+  container.appendChild(renderer.domElement);
+
+  // PMREM
+  pmremGenerator = new THREE.PMREMGenerator(renderer);
+
+  // Turntable — all objects go in here, this rotates when you drag
+  turntable = new THREE.Group();
+  scene.add(turntable);
+
+  // Controls — zoom (scroll) and pan (right-click) only, NO orbit rotation
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 0.3;
+  controls.maxDistance = 4;
+  controls.target.set(0, 0.05, 0);
+  controls.enableRotate = false; // We handle rotation ourselves
+
+  // Mouse handlers for object rotation
+  setupMouseRotation(renderer.domElement);
+
+  // Lights
+  setupLights();
+
+  // Environment
+  setEnvironment('studio');
+
+  // Demo book
+  createDemoBook();
+
+  // Ground shadow
+  createGround();
+
+  // Events
+  window.addEventListener('resize', onResize);
+  setupDragDrop();
+
+  // Animate
+  animate();
+
+  // Apply initial slider values to scene
+  setTimeout(() => {
+    window.updateLighting();
+    window.updateBackground();
+  }, 100);
+
+  // Hide loading
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('fade-out');
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+  }, 800);
+}
+
+// ============================================================
+// MOUSE ROTATION (rotates the object, not the camera)
+// ============================================================
+function setupMouseRotation(canvas) {
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) { // Left click only
+      isDragging = true;
+      previousMouse.x = e.clientX;
+      previousMouse.y = e.clientY;
+      rotationVelocity.x = 0;
+      rotationVelocity.y = 0;
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - previousMouse.x;
+    const dy = e.clientY - previousMouse.y;
+
+    rotationVelocity.x = dx * DRAG_SPEED;
+    rotationVelocity.y = dy * DRAG_SPEED;
+
+    turntable.rotation.y += rotationVelocity.x;
+    turntable.rotation.x += rotationVelocity.y;
+
+    // Clamp vertical rotation so you can't flip it upside down
+    turntable.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, turntable.rotation.x));
+
+    previousMouse.x = e.clientX;
+    previousMouse.y = e.clientY;
+  });
+
+  canvas.addEventListener('mouseup', () => { isDragging = false; });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+  // Touch support
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      previousMouse.x = e.touches[0].clientX;
+      previousMouse.y = e.touches[0].clientY;
+      rotationVelocity.x = 0;
+      rotationVelocity.y = 0;
+    }
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+
+    const dx = e.touches[0].clientX - previousMouse.x;
+    const dy = e.touches[0].clientY - previousMouse.y;
+
+    rotationVelocity.x = dx * DRAG_SPEED;
+    rotationVelocity.y = dy * DRAG_SPEED;
+
+    turntable.rotation.y += rotationVelocity.x;
+    turntable.rotation.x += rotationVelocity.y;
+    turntable.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, turntable.rotation.x));
+
+    previousMouse.x = e.touches[0].clientX;
+    previousMouse.y = e.touches[0].clientY;
+  });
+
+  canvas.addEventListener('touchend', () => { isDragging = false; });
+}
+
+// ============================================================
+// LIGHTS
+// ============================================================
+function setupLights() {
+  // Key light — SpotLight for focused, positional illumination
+  // Raked angle to reveal emboss relief
+  keyLight = new THREE.SpotLight(0xfff5e6, 15.5);
+  const initRad = (25 * Math.PI) / 180;
+  keyLight.position.set(Math.cos(initRad) * 2.1, 1.2, Math.sin(initRad) * 2.1);
+  keyLight.angle = Math.PI / 4;
+  keyLight.penumbra = 0.6;
+  keyLight.decay = 1.5;
+  keyLight.distance = 6;
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.near = 0.1;
+  keyLight.shadow.camera.far = 8;
+  keyLight.shadow.bias = -0.001;
+  keyLight.shadow.radius = 3;
+  keyLight.target.position.set(0, 0, 0);
+  scene.add(keyLight);
+  scene.add(keyLight.target);
+
+  // Fill light — PointLight, opposite side, softer
+  fillLight = new THREE.PointLight(0xc8d8ff, 3);
+  fillLight.position.set(-1.0, 0.8, -0.5);
+  fillLight.decay = 1.5;
+  fillLight.distance = 5;
+  scene.add(fillLight);
+
+  // Rim / back light — PointLight behind and above for edge definition
+  rimLight = new THREE.PointLight(0xffffff, 4);
+  rimLight.position.set(-0.3, 1.5, -1.2);
+  rimLight.decay = 1.5;
+  rimLight.distance = 5;
+  scene.add(rimLight);
+
+  // Accent light — small, warm, creates a secondary specular highlight
+  accentLight = new THREE.PointLight(0xffd699, 2.5);
+  accentLight.position.set(0.5, 0.3, 1.0);
+  accentLight.decay = 2;
+  accentLight.distance = 3;
+  scene.add(accentLight);
+
+  // Light helper spheres — small visible indicators of light positions
+  const helperGeo = new THREE.SphereGeometry(0.015, 16, 16);
+
+  const keyHelperMat = new THREE.MeshBasicMaterial({ color: 0xfff5e6 });
+  keyHelper = new THREE.Mesh(helperGeo, keyHelperMat);
+  keyHelper.position.copy(keyLight.position);
+  scene.add(keyHelper);
+
+  const fillHelperMat = new THREE.MeshBasicMaterial({ color: 0xc8d8ff });
+  fillHelper = new THREE.Mesh(helperGeo, fillHelperMat);
+  fillHelper.position.copy(fillLight.position);
+  scene.add(fillHelper);
+
+  const accentHelperMat = new THREE.MeshBasicMaterial({ color: 0xffd699 });
+  accentHelper = new THREE.Mesh(helperGeo, accentHelperMat);
+  accentHelper.position.copy(accentLight.position);
+  scene.add(accentHelper);
+
+  // Very subtle ambient — just to prevent pure black
+  const ambient = new THREE.AmbientLight(0x202030, 0.15);
+  scene.add(ambient);
+}
+
+// ============================================================
+// ENVIRONMENT
+// ============================================================
+window.setEnvironment = setEnvironment;
+
+// Poly Haven HDRI URLs (free, CC0 license, no attribution required)
+const HDRI_URLS = {
+  studio: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/studio_small_09_4k.hdr',
+  sunset: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/venice_sunset_4k.hdr',
+  warehouse: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/empty_warehouse_01_4k.hdr',
+  outdoor: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/kloofendal_48d_partly_cloudy_puresky_4k.hdr',
+};
+
+const hdriCache = {};
+const rgbeLoader = new RGBELoader();
+
+function setEnvironment(preset) {
+  // Update UI
+  document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.env-btn[data-env="${preset}"]`).classList.add('active');
+
+  // If already cached, apply immediately
+  if (hdriCache[preset]) {
+    applyEnvMap(hdriCache[preset]);
+    return;
+  }
+
+  // Load the HDRI
+  rgbeLoader.load(HDRI_URLS[preset], function(texture) {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    const envTexture = pmremGenerator.fromEquirectangular(texture).texture;
+    texture.dispose();
+
+    hdriCache[preset] = envTexture;
+    applyEnvMap(envTexture);
+  }, undefined, function(error) {
+    console.warn('HDRI load failed for', preset, '- falling back to procedural:', error);
+    const fallback = createProceduralFallback(preset);
+    hdriCache[preset] = fallback;
+    applyEnvMap(fallback);
+  });
+}
+
+function applyEnvMap(texture) {
+  envMap = texture;
+  scene.environment = envMap;
+
+  console.log('Environment map applied to scene:', envMap ? 'OK' : 'FAILED');
+
+  // Get current intensity from slider
+  const envIntensity = parseFloat(document.getElementById('envIntensity').value);
+
+  // Update all materials on all loaded objects
+  const targets = [bookGroup, currentModel].filter(Boolean);
+  targets.forEach(group => {
+    group.traverse(child => {
+      if (!child.isMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(mat => {
+        if (!mat) return;
+        mat.envMap = envMap;
+        mat.envMapIntensity = envIntensity;
+        mat.needsUpdate = true;
+      });
+    });
+  });
+}
+
+function createProceduralFallback(preset) {
+  // Higher quality procedural fallback if HDRI fails to load
+  const envScene = new THREE.Scene();
+  const envColors = {
+    studio: { top: 0x2a2a2a, mid: 0x3a3a3a, bot: 0x1a1a1a, accent: 0xfff8e8 },
+    sunset: { top: 0x1a0a2e, mid: 0xff6030, bot: 0x2a1a0a, accent: 0xffaa44 },
+    warehouse: { top: 0x222222, mid: 0x333333, bot: 0x111111, accent: 0xffffee },
+    outdoor: { top: 0x4488cc, mid: 0x88bbee, bot: 0x336622, accent: 0xffffff },
+  };
+  const c = envColors[preset];
+
+  // Higher-res gradient sphere
+  const gradGeo = new THREE.SphereGeometry(5, 64, 64);
+  const gradMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      topColor: { value: new THREE.Color(c.top) },
+      midColor: { value: new THREE.Color(c.mid) },
+      bottomColor: { value: new THREE.Color(c.bot) },
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 midColor;
+      uniform vec3 bottomColor;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition).y;
+        vec3 col = mix(bottomColor, midColor, smoothstep(-0.5, 0.0, h));
+        col = mix(col, topColor, smoothstep(0.0, 0.8, h));
+        gl_FragColor = vec4(col * 3.0, 1.0);
+      }
+    `
+  });
+  envScene.add(new THREE.Mesh(gradGeo, gradMat));
+
+  // More and brighter reflection spots for better specular
+  for (let i = 0; i < 12; i++) {
+    const size = 0.15 + Math.random() * 0.6;
+    const geo = new THREE.SphereGeometry(size, 16, 16);
+    const brightness = 2.0 + Math.random() * 4.0;
+    const baseColor = new THREE.Color(c.accent);
+    baseColor.multiplyScalar(brightness);
+    const mat = new THREE.MeshBasicMaterial({ color: baseColor });
+    const m = new THREE.Mesh(geo, mat);
+    const angle = (i / 12) * Math.PI * 2;
+    const elevation = -0.5 + Math.random() * 3.5;
+    m.position.set(Math.cos(angle) * (3 + Math.random()), elevation, Math.sin(angle) * (3 + Math.random()));
+    envScene.add(m);
+  }
+
+  const renderTarget = pmremGenerator.fromScene(envScene, 0.02);
+  return renderTarget.texture;
+}
+
+// ============================================================
+// DEMO BOOK
+// ============================================================
+function createDemoBook() {
+  bookGroup = new THREE.Group();
+
+  // Book dimensions (roughly 6x9 proportions)
+  const width = 0.3;
+  const height = 0.42;
+  const depth = 0.04;
+  const spineRadius = 0.01;
+
+  // Create textures
+  baseColorTex = createBaseColorTexture();
+  metallicTex = createMetallicTexture();
+  roughnessTex = createRoughnessTexture();
+  normalTex = createNormalTexture();
+
+  // Front cover
+  const frontGeo = new THREE.PlaneGeometry(width, height, 64, 64);
+  const frontMat = new THREE.MeshStandardMaterial({
+    map: baseColorTex,
+    metalnessMap: metallicTex,
+    roughnessMap: roughnessTex,
+    normalMap: normalTex,
+    normalScale: new THREE.Vector2(0.5, 0.5),
+    metalness: 1.0,
+    roughness: 1.0,
+    envMap: envMap,
+    envMapIntensity: 1.0,
+  });
+
+  const front = new THREE.Mesh(frontGeo, frontMat);
+  front.position.set(0, 0, depth / 2);
+  front.castShadow = true;
+  front.receiveShadow = true;
+  front.name = 'frontCover';
+  bookGroup.add(front);
+
+  // Back cover
+  const backGeo = new THREE.PlaneGeometry(width, height);
+  const backMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a2e,
+    roughness: 0.7,
+    metalness: 0.0,
+    envMap: envMap,
+  });
+  const back = new THREE.Mesh(backGeo, backMat);
+  back.position.set(0, 0, -depth / 2);
+  back.rotation.y = Math.PI;
+  back.castShadow = true;
+  bookGroup.add(back);
+
+  // Spine
+  const spineGeo = new THREE.PlaneGeometry(depth, height);
+  const spineMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a2e,
+    roughness: 0.5,
+    metalness: 0.1,
+    envMap: envMap,
+  });
+  const spine = new THREE.Mesh(spineGeo, spineMat);
+  spine.position.set(-width / 2, 0, 0);
+  spine.rotation.y = -Math.PI / 2;
+  bookGroup.add(spine);
+
+  // Top edge
+  const topGeo = new THREE.PlaneGeometry(width, depth);
+  const pageMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.9 });
+  const topEdge = new THREE.Mesh(topGeo, pageMat);
+  topEdge.position.set(0, height / 2, 0);
+  topEdge.rotation.x = -Math.PI / 2;
+  bookGroup.add(topEdge);
+
+  // Bottom edge
+  const bottomEdge = new THREE.Mesh(topGeo, pageMat);
+  bottomEdge.position.set(0, -height / 2, 0);
+  bottomEdge.rotation.x = Math.PI / 2;
+  bookGroup.add(bottomEdge);
+
+  // Right edge (pages)
+  const rightGeo = new THREE.PlaneGeometry(depth, height);
+  const rightEdge = new THREE.Mesh(rightGeo, pageMat);
+  rightEdge.position.set(width / 2, 0, 0);
+  rightEdge.rotation.y = Math.PI / 2;
+  bookGroup.add(rightEdge);
+
+  // Tilt slightly
+  bookGroup.rotation.x = -0.1;
+  bookGroup.rotation.y = 0.3;
+
+  turntable.add(bookGroup);
+  demoBook = bookGroup;
+}
+
+// ============================================================
+// PROCEDURAL TEXTURES
+// ============================================================
+function createBaseColorTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1434;
+  const ctx = canvas.getContext('2d');
+
+  // Dark cover background
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#1a1a2e');
+  grad.addColorStop(0.5, '#16213e');
+  grad.addColorStop(1, '#0f3460');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle pattern
+  ctx.globalAlpha = 0.03;
+  for (let i = 0; i < 200; i++) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, Math.random() * 40);
+  }
+  ctx.globalAlpha = 1;
+
+  // Title area — gold text area
+  ctx.fillStyle = '#c9a55a';
+  ctx.font = 'bold 80px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE GOLDEN', canvas.width / 2, 420);
+  ctx.fillText('BINDING', canvas.width / 2, 520);
+
+  // Author
+  ctx.fillStyle = '#8899aa';
+  ctx.font = '36px Georgia, serif';
+  ctx.fillText('A. PUBLISHER', canvas.width / 2, 1200);
+
+  // Decorative line
+  ctx.strokeStyle = '#c9a55a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(300, 580);
+  ctx.lineTo(724, 580);
+  ctx.stroke();
+
+  // Small ornament
+  ctx.fillStyle = '#c9a55a';
+  ctx.beginPath();
+  ctx.arc(512, 750, 40, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath();
+  ctx.arc(512, 750, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#c9a55a';
+  ctx.beginPath();
+  ctx.arc(512, 750, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createMetallicTexture() {
+  // Foil map — white = metallic (foil), black = non-metallic
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1434;
+  const ctx = canvas.getContext('2d');
+
+  // All non-metallic by default
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Title area is foil
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 80px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE GOLDEN', canvas.width / 2, 420);
+  ctx.fillText('BINDING', canvas.width / 2, 520);
+
+  // Decorative line is foil
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(300, 580);
+  ctx.lineTo(724, 580);
+  ctx.stroke();
+
+  // Ornament is foil
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(512, 750, 40, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.arc(512, 750, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(512, 750, 15, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+function createRoughnessTexture() {
+  // Roughness map — low = shiny (spot UV), high = matte
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1434;
+  const ctx = canvas.getContext('2d');
+
+  // Default matte surface
+  ctx.fillStyle = '#b3b3b3'; // ~0.7 roughness
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Spot UV on title area — shiny
+  ctx.fillStyle = '#262626'; // ~0.15 roughness
+  ctx.font = 'bold 80px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE GOLDEN', canvas.width / 2, 420);
+  ctx.fillText('BINDING', canvas.width / 2, 520);
+
+  // Spot UV on ornament
+  ctx.fillStyle = '#262626';
+  ctx.beginPath();
+  ctx.arc(512, 750, 42, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Spot UV on decorative border
+  ctx.strokeStyle = '#262626';
+  ctx.lineWidth = 40;
+  ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+function createNormalTexture() {
+  // Normal/bump map for emboss — encode as normal map colors
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1434;
+  const ctx = canvas.getContext('2d');
+
+  // Neutral normal (flat)
+  ctx.fillStyle = '#8080ff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Embossed title — shift normals to create relief
+  ctx.fillStyle = '#a0a0ff'; // Slightly raised
+  ctx.font = 'bold 82px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('THE GOLDEN', canvas.width / 2, 420);
+  ctx.fillText('BINDING', canvas.width / 2, 520);
+
+  // Embossed border
+  ctx.strokeStyle = '#9898ff';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+  // Inner border
+  ctx.strokeStyle = '#9090ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(70, 70, canvas.width - 140, canvas.height - 140);
+
+  // Embossed ornament ring
+  ctx.strokeStyle = '#a0a0ff';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(512, 750, 42, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(512, 750, 32, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Author emboss
+  ctx.fillStyle = '#9090ff';
+  ctx.font = '36px Georgia, serif';
+  ctx.fillText('A. PUBLISHER', canvas.width / 2, 1200);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+// ============================================================
+// GROUND
+// ============================================================
+function createGround() {
+  const geo = new THREE.PlaneGeometry(4, 4);
+  const mat = new THREE.ShadowMaterial({ opacity: 0.3 });
+  const ground = new THREE.Mesh(geo, mat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.22;
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+// ============================================================
+// CONTROLS & UPDATES
+// ============================================================
+window.resetCamera = function() {
+  controls.target.set(0, 0.05, 0);
+  camera.position.set(0.6, 0.4, 0.8);
+  controls.update();
+  // Reset object rotation
+  turntable.rotation.set(0, 0, 0);
+  rotationVelocity.x = 0;
+  rotationVelocity.y = 0;
+};
+
+window.togglePanel = function() {
+  document.getElementById('sidePanel').classList.toggle('collapsed');
+};
+
+window.updateLighting = function() {
+  const intensity = parseFloat(document.getElementById('lightIntensity').value);
+  const envRot = parseFloat(document.getElementById('envRotation').value);
+  const envIntensity = parseFloat(document.getElementById('envIntensity').value);
+  const keyAngle = parseFloat(document.getElementById('keyAngle').value);
+  const keyPower = parseFloat(document.getElementById('keyPower').value);
+  const keyHeight = parseFloat(document.getElementById('keyHeight').value);
+  const keyDist = parseFloat(document.getElementById('keyDistance').value);
+  const fillPower = parseFloat(document.getElementById('fillPower').value);
+  const rimPower = parseFloat(document.getElementById('rimPower').value);
+  const accentPower = parseFloat(document.getElementById('accentPower').value);
+
+  // Update labels
+  document.getElementById('lightIntensityVal').textContent = intensity.toFixed(1);
+  document.getElementById('envRotationVal').textContent = Math.round(envRot) + '°';
+  document.getElementById('envIntensityVal').textContent = envIntensity.toFixed(1);
+  document.getElementById('keyAngleVal').textContent = Math.round(keyAngle) + '°';
+  document.getElementById('keyPowerVal').textContent = keyPower.toFixed(1);
+  document.getElementById('keyHeightVal').textContent = keyHeight.toFixed(2);
+  document.getElementById('keyDistanceVal').textContent = keyDist.toFixed(2);
+  document.getElementById('fillPowerVal').textContent = fillPower.toFixed(1);
+  document.getElementById('rimPowerVal').textContent = rimPower.toFixed(1);
+  document.getElementById('accentPowerVal').textContent = accentPower.toFixed(1);
+
+  // Exposure
+  renderer.toneMappingExposure = intensity;
+
+  // Key spotlight — orbits around the book
+  keyLight.intensity = keyPower;
+  const rad = (keyAngle * Math.PI) / 180;
+  keyLight.position.set(Math.cos(rad) * keyDist, keyHeight, Math.sin(rad) * keyDist);
+  keyLight.target.position.set(0, 0, 0);
+  if (keyHelper) keyHelper.position.copy(keyLight.position);
+
+  // Fill light — stays opposite the key
+  fillLight.intensity = fillPower;
+  fillLight.position.set(Math.cos(rad + Math.PI) * 1.0, 0.8, Math.sin(rad + Math.PI) * 0.5);
+  if (fillHelper) fillHelper.position.copy(fillLight.position);
+
+  // Rim light
+  rimLight.intensity = rimPower;
+
+  // Accent light
+  accentLight.intensity = accentPower;
+  if (accentHelper) accentHelper.position.copy(accentLight.position);
+
+  // Env rotation
+  if (scene.environment) {
+    scene.environmentRotation = new THREE.Euler(0, (envRot * Math.PI) / 180, 0);
+  }
+
+  // Env intensity on all materials
+  const targets = [bookGroup, currentModel].filter(Boolean);
+  targets.forEach(group => {
+    group.traverse(child => {
+      if (!child.isMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(mat => {
+        if (!mat) return;
+        mat.envMapIntensity = envIntensity;
+        mat.needsUpdate = true;
+      });
+    });
+  });
+};
+
+window.toggleLightHelpers = function(el) {
+  el.classList.toggle('active');
+  showLightHelpers = el.classList.contains('active');
+  if (keyHelper) keyHelper.visible = showLightHelpers;
+  if (fillHelper) fillHelper.visible = showLightHelpers;
+  if (accentHelper) accentHelper.visible = showLightHelpers;
+};
+
+window.updateBackground = function() {
+  const brightness = parseFloat(document.getElementById('bgBrightness').value);
+  document.getElementById('bgBrightnessVal').textContent = brightness.toFixed(2);
+  scene.background = new THREE.Color(brightness, brightness, brightness);
+};
+
+window.toggleEnvBg = function(el) {
+  el.classList.toggle('active');
+  if (el.classList.contains('active')) {
+    scene.background = envMap;
+  } else {
+    const brightness = parseFloat(document.getElementById('bgBrightness').value);
+    scene.background = new THREE.Color(brightness, brightness, brightness);
+  }
+};
+
+// ============================================================
+// DIAGNOSTICS
+// ============================================================
+window.runDiagnostics = function() {
+  const el = document.getElementById('diagContent');
+  let html = '';
+
+  // Helper functions
+  const ok = (text) => `<span class="diag-ok">✓ ${text}</span>`;
+  const warn = (text) => `<span class="diag-warn">⚠ ${text}</span>`;
+  const bad = (text) => `<span class="diag-bad">✗ ${text}</span>`;
+  const label = (text) => `<span class="diag-label">${text}</span>`;
+  const val = (text) => `<span class="diag-val">${text}</span>`;
+
+  // 1. Scene environment
+  html += '<div class="diag-section">';
+  html += '<div class="diag-section-title" style="color: var(--accent);">Scene Environment</div>';
+  html += scene.environment ? ok('scene.environment is SET') + '<br>' : bad('scene.environment is NULL — metallic surfaces have nothing to reflect') + '<br>';
+  html += envMap ? ok('envMap variable is SET') + '<br>' : bad('envMap variable is NULL') + '<br>';
+
+  // Check HDRI cache
+  const cachedCount = Object.keys(hdriCache || {}).length;
+  html += cachedCount > 0 ? ok(`${cachedCount} HDRI(s) cached`) + '<br>' : warn('No HDRIs cached yet — they may still be loading') + '<br>';
+  html += '</div>';
+
+  // 2. Renderer
+  html += '<div class="diag-section">';
+  html += '<div class="diag-section-title" style="color: var(--accent);">Renderer</div>';
+  html += `${label('toneMapping:')} ${val(renderer.toneMapping === THREE.ACESFilmicToneMapping ? 'ACESFilmic ✓' : renderer.toneMapping)}<br>`;
+  html += `${label('toneMappingExposure:')} ${val(renderer.toneMappingExposure.toFixed(2))}<br>`;
+  html += `${label('outputColorSpace:')} ${val(renderer.outputColorSpace)}<br>`;
+  html += `${label('pixelRatio:')} ${val(renderer.getPixelRatio())}<br>`;
+  html += `${label('shadowMap:')} ${val(renderer.shadowMap.enabled ? 'enabled' : 'DISABLED')}<br>`;
+  html += '</div>';
+
+  // 3. Lights
+  html += '<div class="diag-section">';
+  html += '<div class="diag-section-title" style="color: var(--accent);">Lights</div>';
+  const lights = [];
+  scene.traverse(child => {
+    if (child.isLight) lights.push(child);
+  });
+  lights.forEach(light => {
+    const type = light.constructor.name;
+    const pos = `(${light.position.x.toFixed(2)}, ${light.position.y.toFixed(2)}, ${light.position.z.toFixed(2)})`;
+    html += `${label(type)} intensity=${val(light.intensity.toFixed(2))} pos=${val(pos)}`;
+    if (light.decay !== undefined) html += ` decay=${val(light.decay)}`;
+    if (light.distance !== undefined && light.distance > 0) html += ` dist=${val(light.distance)}`;
+    html += '<br>';
+  });
+  html += '</div>';
+
+  // 4. Material comparison
+  html += '<div class="diag-section">';
+  html += '<div class="diag-section-title" style="color: var(--accent);">Materials — All Objects in Scene</div>';
+
+  function diagMaterial(mat, meshName) {
+    let s = '';
+    s += `<div style="margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px;">`;
+    s += `<strong style="color: var(--text);">${meshName}</strong> → <span style="color: var(--accent);">${mat.name || '(unnamed)'}</span> [${mat.type}]<br>`;
+
+    // Core PBR
+    s += `  ${label('metalness:')} ${val(mat.metalness?.toFixed(3) ?? 'N/A')}`;
+    s += mat.metalness > 0.5 ? ' <span class="diag-warn">(highly metallic — needs envMap to look right)</span>' : '';
+    s += '<br>';
+
+    s += `  ${label('roughness:')} ${val(mat.roughness?.toFixed(3) ?? 'N/A')}<br>`;
+
+    // Maps
+    const maps = {
+      'map (baseColor)': mat.map,
+      'metalnessMap': mat.metalnessMap,
+      'roughnessMap': mat.roughnessMap,
+      'normalMap': mat.normalMap,
+      'aoMap': mat.aoMap,
+      'emissiveMap': mat.emissiveMap,
+    };
+
+    for (const [mapName, texture] of Object.entries(maps)) {
+      if (texture) {
+        const size = texture.image ? `${texture.image.width}x${texture.image.height}` : 'unknown size';
+        s += `  ${label(mapName + ':')} ${ok('present')} (${size})<br>`;
+      } else {
+        const isImportant = mapName === 'metalnessMap' && mat.metalness > 0;
+        s += `  ${label(mapName + ':')} ${isImportant ? warn('missing — using scalar value') : val('not used')}<br>`;
+      }
+    }
+
+    // EnvMap
+    if (mat.envMap) {
+      s += `  ${label('envMap:')} ${ok('SET')}`;
+    } else if (scene.environment) {
+      s += `  ${label('envMap:')} ${warn('null on material, but scene.environment exists (should auto-apply)')}`;
+    } else {
+      s += `  ${label('envMap:')} ${bad('NULL — this is why metallic surfaces look flat')}`;
+    }
+    s += '<br>';
+
+    s += `  ${label('envMapIntensity:')} ${val(mat.envMapIntensity?.toFixed(2) ?? 'N/A')}`;
+    if (mat.envMapIntensity === 0) s += ' <span class="diag-bad">(ZERO — envMap has no effect!)</span>';
+    else if (mat.envMapIntensity < 0.5) s += ' <span class="diag-warn">(low — increase for stronger reflections)</span>';
+    s += '<br>';
+
+    // Color
+    if (mat.color) s += `  ${label('color:')} ${val('#' + mat.color.getHexString())}<br>`;
+    if (mat.emissive) s += `  ${label('emissive:')} ${val('#' + mat.emissive.getHexString())}<br>`;
+
+    s += `</div>`;
+    return s;
+  }
+
+  // Walk all objects in turntable
+  let materialCount = 0;
+  turntable.traverse(child => {
+    if (!child.isMesh) return;
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    materials.forEach(mat => {
+      if (!mat) return;
+      materialCount++;
+      html += diagMaterial(mat, child.name || '(unnamed mesh)');
+    });
+  });
+
+  if (materialCount === 0) {
+    html += warn('No meshes found in scene. Load a GLB or check the demo book.') + '<br>';
+  }
+
+  html += '</div>';
+
+  // 5. Recommendations
+  html += '<div class="diag-section">';
+  html += '<div class="diag-section-title" style="color: var(--accent);">Recommendations</div>';
+
+  if (!scene.environment) {
+    html += bad('No environment map. Metallic surfaces will appear dark/flat. Switch to a different environment preset to trigger HDRI load.') + '<br>';
+  }
+
+  // Check if any material has envMapIntensity of 0
+  let hasZeroEnv = false;
+  let hasNullEnvMap = false;
+  let hasHighMetalNoEnv = false;
+  turntable.traverse(child => {
+    if (!child.isMesh) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach(mat => {
+      if (!mat) return;
+      if (mat.envMapIntensity === 0) hasZeroEnv = true;
+      if (!mat.envMap && !scene.environment) hasNullEnvMap = true;
+      if (mat.metalness > 0.5 && !mat.envMap && !scene.environment) hasHighMetalNoEnv = true;
+    });
+  });
+
+  if (hasZeroEnv) html += bad('Some materials have envMapIntensity=0. Crank the Env Intensity slider up.') + '<br>';
+  if (hasHighMetalNoEnv) html += bad('Metallic materials with no envMap. This is the most likely cause of flat-looking metals.') + '<br>';
+  if (!hasZeroEnv && !hasNullEnvMap && scene.environment) {
+    html += ok('Environment and materials look correctly configured. If lighting still looks different, the issue may be GLB export settings (check Blender export → include punctual lights, apply modifiers).') + '<br>';
+  }
+
+  html += '</div>';
+
+  el.innerHTML = html;
+  document.getElementById('diagOverlay').style.display = 'block';
+};
+
+// ============================================================
+// FILE LOADING
+// ============================================================
+window.loadFile = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  loadGLB(file);
+};
+
+function loadGLB(file) {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://unpkg.com/three@0.162.0/examples/jsm/libs/draco/');
+
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+
+  const url = URL.createObjectURL(file);
+
+  // Show loading
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loading').classList.remove('fade-out');
+  document.querySelector('.loading-text').textContent = 'Loading model...';
+
+  loader.load(url, function(gltf) {
+    console.log('GLB loaded successfully', gltf);
+
+    // Remove demo book
+    if (demoBook) {
+      turntable.remove(demoBook);
+      demoBook = null;
+    }
+
+    // Remove previous loaded model
+    if (currentModel) {
+      turntable.remove(currentModel);
+    }
+
+    const model = gltf.scene;
+
+    // Center and scale model
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 0.6 / maxDim;
+
+    model.scale.setScalar(scale);
+    model.position.sub(center.multiplyScalar(scale));
+
+    // Diagnostic: log env state
+    console.log('Environment map status:', envMap ? 'LOADED' : 'NULL');
+    console.log('scene.environment:', scene.environment ? 'SET' : 'NULL');
+
+    // Get current env intensity from slider
+    const envIntensity = parseFloat(document.getElementById('envIntensity').value);
+
+    // Apply env map and configure materials for all meshes
+    let meshCount = 0;
+    let matCount = 0;
+    model.traverse(child => {
+      if (child.isMesh) {
+        meshCount++;
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        // Handle both single materials and material arrays
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+        materials.forEach(mat => {
+          if (!mat) return;
+          matCount++;
+
+          // Log material PBR properties for debugging
+          console.log(`Material "${mat.name}": metalness=${mat.metalness}, roughness=${mat.roughness}, hasMetalnessMap=${!!mat.metalnessMap}, hasRoughnessMap=${!!mat.roughnessMap}, hasNormalMap=${!!mat.normalMap}`);
+
+          // Force env map from our scene if available
+          if (envMap) {
+            mat.envMap = envMap;
+          }
+          mat.envMapIntensity = envIntensity;
+
+          // Ensure the material knows it needs to update
+          mat.needsUpdate = true;
+        });
+      }
+    });
+
+    console.log(`Processed ${meshCount} meshes with ${matCount} materials`);
+
+    // If env map isn't loaded yet, ensure scene.environment is set
+    // so materials pick it up when it arrives
+    if (!envMap && !scene.environment) {
+      console.warn('No environment map loaded yet — metallic surfaces will appear dark. Reloading environment...');
+      setEnvironment('studio');
+    }
+
+    turntable.add(model);
+    currentModel = model;
+    bookGroup = model;
+
+    // Reset turntable rotation for the new model
+    turntable.rotation.set(0, 0, 0);
+    rotationVelocity.x = 0;
+    rotationVelocity.y = 0;
+
+    // Hide demo badge
+    document.getElementById('demoBadge').style.display = 'none';
+
+    // Reset camera to frame the model
+    controls.target.set(0, 0, 0);
+    camera.position.set(0.6, 0.4, 0.8);
+    controls.update();
+
+    // Hide loading
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('fade-out');
+      setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+    }, 300);
+
+    URL.revokeObjectURL(url);
+  }, function(progress) {
+    console.log('Loading progress:', progress);
+  }, function(error) {
+    console.error('Error loading GLB:', error);
+    alert('Error loading GLB file. Check browser console for details. Error: ' + error.message);
+    document.querySelector('.loading-text').textContent = 'Error loading file';
+    setTimeout(() => {
+      document.getElementById('loading').classList.add('fade-out');
+      setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+    }, 1500);
+  });
+}
+
+// ============================================================
+// DRAG & DROP
+// ============================================================
+function setupDragDrop() {
+  const overlay = document.getElementById('dropOverlay');
+
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    overlay.classList.add('active');
+  });
+
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    if (e.relatedTarget === null) {
+      overlay.classList.remove('active');
+    }
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    overlay.classList.remove('active');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
+        loadGLB(file);
+      }
+    }
+  });
+}
+
+// ============================================================
+// RESIZE
+// ============================================================
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ============================================================
+// ANIMATE
+// ============================================================
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+
+  // Apply rotation inertia when not dragging
+  if (!isDragging) {
+    if (Math.abs(rotationVelocity.x) > 0.0001 || Math.abs(rotationVelocity.y) > 0.0001) {
+      turntable.rotation.y += rotationVelocity.x;
+      turntable.rotation.x += rotationVelocity.y;
+      turntable.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, turntable.rotation.x));
+
+      rotationVelocity.x *= DAMPING;
+      rotationVelocity.y *= DAMPING;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// START
+// ============================================================
+init();
+</script>
+</body>
+</html>
